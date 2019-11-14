@@ -2,6 +2,7 @@
 # Python 3
 # Usage: python3 UDPserver3.py
 # coding: utf-8
+import struct
 import sys
 import threading
 import time
@@ -32,15 +33,15 @@ class Socketprocess:
         self.clientAddress = clientAddress
 
     def receiveMessage(self):
-        try:
-            ready = select.select([self.connectionSocket], [], [], timeout)
-        except:
-            print(ready)
-        if ready[0]:
-            message = self.connectionSocket.recvfrom(2048)
-        else:
-            message = "timeout"
-            print("timeout")
+        # try:
+        #     ready = select.select([self.connectionSocket], [], [], timeout)
+        # except:
+        #     print(ready)
+        # if ready[0]:
+        #     message = self.connectionSocket.recvfrom(2048)
+        # else:
+        #     message = "timeout"
+        #     print("timeout")
 
         #readable, writable, exceptional = select.select(self.connectionSocket, [], [],timeout)
 
@@ -155,24 +156,29 @@ def recv_handler(connectionSocket, clientAddress):
 
 def initialise_server():
     # socket setup
-    try:
-        serverSocket = socket(AF_INET, SOCK_STREAM)
-        serverSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-        #serverSocket.settimeout(Timeout);
-    except:
-        print("Could not create socket")
-        sys.exit(0)
+    # try:
+    #     serverSocket = socket(AF_INET, SOCK_STREAM)
+    #     serverSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1,SO_RCVTIMEO, pack('ll', 10, 0))
+    #     #serverSocket.settimeout(Timeout);
+    # finally:
+    #     print("Could not create socket")
+    #     sys.exit(0)
+    #
+    # print("[-] Socket Created")
 
-    print("[-] Socket Created")
+    serverSocket = socket(AF_INET, SOCK_STREAM)
+    serverSocket.setsockopt(SOL_SOCKET,SO_RCVTIMEO, struct.pack('ll', 10, 0))
+    serverSocket.settimeout(Timeout);
+
 
     # bind socket
-    try:
-        serverSocket.bind(("localhost", serverPort))
-        #serverSocket.setblocking(0)
-        print("[-] Socket Bound to port " + str(serverPort))
-    except:
-        print("Bind Failed")
-        sys.exit()
+    #try:
+    serverSocket.bind(("localhost", serverPort))
+    serverSocket.setblocking(0)
+    print("[-] Socket Bound to port " + str(serverPort))
+    #except:
+    #print("Bind Failed")
+    #sys.exit()
 
     serverSocket.listen(1)
     print("Listening...")
