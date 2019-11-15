@@ -6,6 +6,7 @@ import sys
 import threading
 import time
 from socket import *
+from time import sleep
 import select
 
 # Server will run on this port
@@ -16,11 +17,12 @@ clients = []
 blacklist = {}
 currentBlockThread = []
 
+
 serverPort = int(sys.argv[1])
 print(serverPort)
 BlockTime = int(sys.argv[2])
 print(BlockTime)
-Timeout = int(sys.argv[3])
+Timeout = float(sys.argv[3])
 print(Timeout)
 
 
@@ -32,15 +34,15 @@ class Socketprocess:
         self.clientAddress = clientAddress
 
     def receiveMessage(self):
-        try:
-            ready = select.select([self.connectionSocket], [], [], timeout)
-        except:
-            print(ready)
-        if ready[0]:
-            message = self.connectionSocket.recvfrom(2048)
-        else:
-            message = "timeout"
-            print("timeout")
+        # try:
+        #     ready = select.select([self.connectionSocket], [], [], timeout)
+        # except:
+        #     print(ready)
+        # if ready[0]:
+        #     message = self.connectionSocket.recvfrom(2048)
+        # else:
+        #     message = "timeout"
+        #     print("timeout")
 
         #readable, writable, exceptional = select.select(self.connectionSocket, [], [],timeout)
 
@@ -158,7 +160,6 @@ def initialise_server():
     try:
         serverSocket = socket(AF_INET, SOCK_STREAM)
         serverSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-        #serverSocket.settimeout(Timeout);
     except:
         print("Could not create socket")
         sys.exit(0)
@@ -168,7 +169,7 @@ def initialise_server():
     # bind socket
     try:
         serverSocket.bind(("localhost", serverPort))
-        #serverSocket.setblocking(0)
+        serverSocket.setblocking(0)
         print("[-] Socket Bound to port " + str(serverPort))
     except:
         print("Bind Failed")
@@ -176,25 +177,69 @@ def initialise_server():
 
     serverSocket.listen(1)
     print("Listening...")
+    serverSocket.setblocking(0)
     return serverSocket
 
 
-def connection_setup(serverSocket):
-    try:
-        connectionSocket, clientAddress = serverSocket.accept()
-        recv_thread = threading.Thread(name=clientAddress, target=recv_handler,
-                                       args=(connectionSocket, clientAddress))
-        recv_thread.daemon = True
-        recv_thread.start()
-        time.sleep(2)
-    except (KeyboardInterrupt, SystemExit):
-        print("\nClosing Server....")
-        serverSocket.close()
-        sys.exit(0)
+def connection_setup(server_socket,read_list):
+    # try:
+    #     connectionSocket, clientAddress = serverSocket.accept()
+    #     recv_thread = threading.Thread(name=clientAddress, target=recv_handler,
+    #                                    args=(connectionSocket, clientAddress))
+    #     recv_thread.daemon = True
+    #     recv_thread.start()
+    #     time.sleep(2)
+    # except (KeyboardInterrupt, SystemExit):
+    #     print("\nClosing Server....")
+    #     serverSocket.close()
+    #     sys.exit(0)
+
+
+    readable, writable, errored = select.select(read_list, [], [], 3)
+    for s in readable:
+        if s is server_socket:
+            client_socket, address = server_socket.accept()
+            read_list.append(client_socket)
+        else:
+            print("go client")
+            data = s.recv(1024)
+            if data:
+                s.send(data)
+            else:
+                s.close()
+                read_list.remove(s)
 
 
 
 if __name__ == "__main__":
-    serverSocket = initialise_server()
+
+    #server_socket = initialise_server()
+    # read_list = [server_socket]
+    # while True:
+    #     connection_setup(server_socket,read_list)
+
+    server_socket = socket(AF_INET, SOCK_STREAM)
+    server_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+    server_socket.bind(('localhost', 12345))
+    server_socket.listen(1)
+    server_socket.setblocking(0)
+
+    read_list = [server_socket]
     while True:
-        connection_setup(serverSocket)
+        print(read_list)
+        readable, writable, errored = select.select(read_list, [], [],6)
+        if(readable or writable or errored):
+            for s in readable:
+                if s is server_socket:
+                    client_socket, address = server_socket.accept()
+                    read_list.append(client_socket)
+                    print("Connection from", address)
+                else:
+                    data = s.recv(1024)
+                    if data:
+                        s.send(data)
+                    else:
+                        s.close()
+                        read_list.remove(s)
+        else:
+            print("timeout happen")
