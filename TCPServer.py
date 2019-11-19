@@ -14,6 +14,7 @@ import notifiers
 t_lock = threading.Condition()
 # will store clients info in this list
 clients = []
+currentClients = []
 blacklist = {}
 currentBlockThread = []
 startTimeRecord= {}
@@ -35,6 +36,9 @@ class Socketprocess:
         self.name = None;
         self.connectionSocket = connectionSocket
         self.clientAddress = clientAddress
+        self.block = []
+        self.startDownload = False
+
 
     def setName(self,name):
         self.name= name;
@@ -53,7 +57,6 @@ class Socketprocess:
     def receiveMessage(self):
 
         ReceiveTimeout = threading.Event()
-        print("loop")
         print(ReceiveTimeout.isSet())
         timeout_threading = threading.Thread(target= self.DetectReceiveTimeout,args=(ReceiveTimeout,))
         timeout_threading.start()
@@ -78,6 +81,15 @@ class Socketprocess:
 
     def sendMessage(self, serverMessage):
         self.connectionSocket.send(serverMessage.encode())
+    def checkBlockUser(self,user):
+        if(user in self.block):
+            return True
+        else:
+            return False
+    def addBlockUser(self,user):
+        self.block.append(user)
+    def removeBlockUser(self,user):
+        self.block.remove(user)
 
 
 def userAuth(username, password):
@@ -136,7 +148,16 @@ def RemoveFromBlacklist(username):
     global blacklist
     blacklist[username]=0
 
+def UserAlreadyLogin(username):
+    if username in  currentClients:
+        return True
+    return False
 
+def addressString(addr,username):
+    address = addr[0]
+    port = addr[1]
+    string = "personal "+ str(address)+" "+ str(port)#+" "+ str(username)
+    return string
 
 def recv_handler(connectionSocket, clientAddress,notifier):
     print("Conection set up...")
@@ -148,48 +169,63 @@ def recv_handler(connectionSocket, clientAddress,notifier):
 
         try:
             message = p.receiveMessage()
-        except (KeyboardInterrupt, RuntimeError) as e:
+            with t_lock:
+                if(not Auth):
+                    username = message[0]
+                    if(CheckBlockingDuratoin(username)):
+                        serverMessage = "Still under Blocked"
+                        p.sendMessage(serverMessage)
+                        t_lock.notify()
+                        continue
+
+
+                    if(userAuth(username,message[1])):
+
+                        if(UserAlreadyLogin(username)):
+                            print("user exist")
+                            serverMessage = "User Already Login"
+                        else:
+                            p.sendMessage(addressString(clientAddress,username))
+                            time.sleep(0.3)
+                            startTimeRecord[username] = time.time()
+                            RemoveFromBlacklist(username)
+                            currentClients.append(username)
+                            clients.append(clientAddress)
+                            p.setName(username)
+                            notifier.login(p)
+                            Auth = True
+                            if(notifier.checkOfflineMessage(p)):
+                                serverMessage = "=============================\n\tWelcome\n============================="
+                            else:
+                                serverMessage = ''
+
+                    else:
+                        serverMessage = UserLoginFailAttempt(username)
+                else:
+
+                    serverMessage = parseCommand.parse(message,p,notifier,startTimeRecord)
+                if(serverMessage ==''):
+                    t_lock.notify()
+                else:
+                    p.sendMessage(serverMessage)
+                    t_lock.notify()
+        except (KeyboardInterrupt, RuntimeError,ConnectionResetError) as e:
             print(e)
             notifier.logout(p)
             p.closeSocket()
             Auth = False
+            if p.name in currentClients:
+                currentClients.remove(p.name)
             connectionSocket, clientAddress = serverSocket.accept()
             p = Socketprocess(connectionSocket,clientAddress)
             continue
-
-        serverMessage = "Recived Command"
-        with t_lock:
-            if(not Auth):
-                username = message[0]
-                if(CheckBlockingDuratoin(username)):
-                    serverMessage = "Still under Blocked"
-                    p.sendMessage(serverMessage)
-                    t_lock.notify()
-                    continue;
-
-
-                if(userAuth(username,message[1])):
-                    RemoveFromBlacklist(username)
-                    clients.append(clientAddress)
-                    p.setName(username)
-                    notifier.login(p)
-                    Auth = True
-                    serverMessage = "Welcome"
-                else:
-                    serverMessage = UserLoginFailAttempt(username)
-            else:
-
-                serverMessage = message[0]
-            p.sendMessage(serverMessage)
-            t_lock.notify()
-
 
 def initialise_server():
     # socket setup
     try:
         serverSocket = socket(AF_INET, SOCK_STREAM)
         serverSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-        #serverSocket.settimeout(Timeout);
+
     except:
         print("Could not create socket")
         sys.exit(0)
@@ -215,7 +251,6 @@ def connection_setup(serverSocket,notifier):
 
         connectionSocket, clientAddress = serverSocket.accept()
 
-        send_thread = threading.Thread()
 
         recv_thread = threading.Thread(name=clientAddress, target=recv_handler,
                                        args=(connectionSocket, clientAddress,notifier))
