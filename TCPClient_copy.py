@@ -431,7 +431,7 @@ if __name__ == "__main__":
 
 
 
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt,OSError):
             clientSocket.send("logout".encode())
             print("Client closing..")
             sys.exit(0)

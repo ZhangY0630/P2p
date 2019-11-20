@@ -101,6 +101,8 @@ def parse(message,p,notifier,starttime):
                 if (flag == "NoReplay"):
                     return ""
                 return ""
+
+
             return "Invalid formate. Please follow follow the style like:\nregister mf mf01 to mf09 9 1024 or register mf mf10 930."
         except IndexError:
             return "Invalid formate. Please follow follow the style like:\nregister mf mf01 to mf09 9 1024 or register mf mf10 930."
