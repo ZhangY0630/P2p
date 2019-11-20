@@ -1,5 +1,4 @@
-from socket import  *
-import sys
+
 from _thread import start_new_thread
 
 HOST = 'localhost' # all availabe interfaces
@@ -31,18 +30,3 @@ def client_thread(conn):
     conn.send("Welcome to the Server. Type messages and press enter to send.\n".encode())
 
     while True:
-        data = conn.recv(1024)
-        if not data:
-            break
-        reply = "OK . . " + dataqw
-        conn.sendall(reply)
-    conn.close()
-
-while True:
-    # blocking call, waits to accept a connection
-    conn, addr = s.accept()
-    print("[-] Connected to " + addr[0] + ":" + str(addr[1]))
-
-    start_new_thread(client_thread, (conn,))
-
-s.close()

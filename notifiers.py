@@ -33,25 +33,32 @@ class notifier:
             if(file.name == filename):
                 return file.chunk
 
-    def fileSearch(self,name):
-
+    def fileSearch(self,name,user):
         for file in self.filelist:
             if(file.name == name):
                 l = file.owner()
                 if len(l)> 0:
+                    if( user in l):
+                        l.remove(user)
                     msg = "Available "+" ".join(l)
                     return msg
+
         return "Not Available"
 
     def chunkSearch(self,name,chunk):
-
+        l = None
         for file in self.filelist:
             if(file.name == name):
                 l = file.chunkOwner(chunk)
-                if len(l)> 0:
-                    msg = "Available "+" ".join(l)
-                    return msg
-        return "Not Available"
+        for user in l:
+            if not (self.checkCurrentuser(user)):
+                l.remove(user)
+
+        if len(l)> 0:
+            msg = "Available "+" ".join(l) +" "+name +" "+chunk
+            print("message "+msg)
+            return msg
+        return "NotAvailable"
 
     def login(self,p):
         self.current_list.append(p)
@@ -80,6 +87,11 @@ class notifier:
     def checkuser(self,name):
         for othername in self.all_list:
             if othername == name:
+                return True
+        return False
+    def checkCurrentuser(self,name):
+        for socket in self.current_list:
+            if socket.name == name:
                 return True
         return False
     def sendMessage(self,p,user,text):
@@ -124,14 +136,25 @@ class notifier:
         return None
 
     def searchAvailable(self,filename,user):
+        find = False
         for p in self.current_list:
             if user != p.name:
                 p.sendMessage("request "+ filename +" "+user)
+                find = True
+        if(find == False):
+            self.find(user).sendMessage("No available User")
     def search(self,filename,user):
         for p in self.current_list:
             if user != p.name:
                 p.sendMessage("search "+ filename)
     def find(self,name):
         for p in self.current_list:
-            if name != p.name:
+            if name == p.name:
                 return p
+    def chunklist(self,name):
+        for p in self.filelist:
+            if name == p.name:
+                return p.chunklist()
+    def removeRegister(self,name):
+        for f in self.filelist:
+            f.removeUser(name)

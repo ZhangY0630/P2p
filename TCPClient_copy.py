@@ -1,4 +1,5 @@
 import os
+import random
 import select
 import sys
 import threading
@@ -12,7 +13,7 @@ download_buffer = {}
 loginName = None
 
 num_chunks = 10
-
+global clientSocket
 #PrivateSendSession = []
 
 def checkInvalidLogin(receivedMessage):
@@ -55,7 +56,7 @@ def haveResource(filename,socket):
         for resource in download_buffer.keys():
             msg = "register "+filename+" "+resource+" "+str(num_chunks)+" "+ str(sys.getsizeof(download_buffer[resource])) +" NoReplay"
             socket.send(msg.encode())
-            time.sleep(0.1)
+            time.sleep(0.5)
         return True
     return False
 
@@ -64,6 +65,7 @@ def haveResource(filename,socket):
 def recv_handler(clientSocket,end,m,p2p,selfInfo):
     global loginName
     global num_chunks
+    global download_buffer
     usr = input("UserName: \n")
     loginName = usr
     pw = input("PassWord: \n")
@@ -104,9 +106,7 @@ def recv_handler(clientSocket,end,m,p2p,selfInfo):
                 filename = receivedMessage.decode().split()[1]
                 user = receivedMessage.decode().split()[2]
                 if(haveResource(filename,clientSocket)):
-                    msg = "SuccessRegister "+ user +" "+filename
-                    print(msg)
-
+                    msg = "SuccessRegister "+filename+ " "+user
                     clientSocket.send(msg.encode())
                 continue
             if (receivedMessage.decode().split()[0] == "search"):
@@ -114,8 +114,43 @@ def recv_handler(clientSocket,end,m,p2p,selfInfo):
                 haveResource(filename,clientSocket)
                 continue
 
+            if (receivedMessage.decode().split()[0] == "ChunkList"):
+                filename = receivedMessage.decode().split()[1]
+                chunklist = receivedMessage.decode().split()[2:]
+                #if have no thing in the buffer, finish download or new
+                if not (download_buffer):
+                    for c in chunklist:
+                        download_buffer[c] = None
+                l = bufferlist(download_buffer)
+                choose = random.choice(l)
+                msg = "searchChunks "+filename+" "+choose
 
+                clientSocket.send(msg.encode())
+                continue
 
+            if (receivedMessage.decode().split()[0] == "Available"):
+                content = receivedMessage.decode().split()
+                ori = content
+                chunk = content[-1]
+                filename = content[-2]
+
+                content = content[:-2]
+                namelist = content[1:]
+                name = random.choice(namelist)
+
+                # #To do need to limit the num of loop
+                socket = checkPrivateMessageList(name)
+                if not socket:
+                    msg = "startprivate "+name
+                    clientSocket.send(msg.encode())
+                    time.sleep(1)
+                    msg = " ".join(ori)
+                    clientSocket.send(msg.encode())
+                    continue
+                print("Downloading.....")
+                msg = "download "+filename+" "+chunk
+                socket.sendMessage(msg)
+                continue
 
 
             print(receive[0].decode())
@@ -125,6 +160,13 @@ def recv_handler(clientSocket,end,m,p2p,selfInfo):
         clientSocket.shutdown(1)
         clientSocket.close()
         end.set()
+
+def bufferlist(buffer):
+    l = []
+    for key in buffer.keys():
+        if(buffer[key]==None):
+            l.append(key)
+    return l
 
 def checkPrivateMessageList(user):
     global PrivateMessageSession
@@ -138,6 +180,8 @@ def checkP2pMsg(msg):
     global loginNames
     global PrivateMessageSession
     content = msg.split()
+    if(content==""):
+        return False
     if(content[0]=="private"):
         p = checkPrivateMessageList(content[1])
         if(p!=None):
@@ -237,6 +281,7 @@ class socketprocess:
     def receiveMessage(self):
         global download_buffer
         global num_chunks
+        global clientSocket
         try:
             m = self.connectionSocket.recvfrom(2048)
 
@@ -257,7 +302,6 @@ class socketprocess:
                     return
                 file = receivedMessage[1]
                 chunk = receivedMessage[2]
-
                 msg = download_buffer[chunk]
                 msg = "file "+str(chunk)+" "+ msg + " "+file
                 self.connectionSocket.send(msg.encode())
@@ -265,14 +309,26 @@ class socketprocess:
 
             if (receivedMessage[0] == "file"):
                 download_buffer[receivedMessage[1]] = receivedMessage[2]
-                msg = "register "+receivedMessage[3]+" "+receivedMessage[1]+" "+num_chunks+" "+sys.getsizeof(receivedMessage[2])+" "+"NoReply"
+                print(receivedMessage[3])
+                msg = "register "+receivedMessage[3]+" "+receivedMessage[1]+" "+str(num_chunks)+" "+str(sys.getsizeof(receivedMessage[2]))+" "+"NoReply"
+                clientSocket.send(msg.encode())
+                print("receive "+ receivedMessage[1])
+                msg = "send "+receivedMessage[1]
                 self.connectionSocket.send(msg.encode())
-                if(len(download_buffer.keys())==num_chunks):
+                print(str((num_download(download_buffer)/num_chunks) * 100) + ("% complete"))
+                time.sleep(1)
+                if(num_download(download_buffer)==num_chunks):
                     writeFile(download_buffer,receivedMessage[3])
                     download_buffer = {}
-                    self.connectionSocket.send("finishDownload".encode())
+                    clientSocket.send("finishDownload".encode())
+                    print("download_"+receivedMessage[3]+" done")
+                    return
+                msg = "Continue "+ receivedMessage[3]
 
+                clientSocket.send(msg.encode())
                 return
+
+
 
             print(m)
         except (OSError , KeyboardInterrupt, UnboundLocalError):
@@ -289,6 +345,13 @@ class socketprocess:
         for p in PrivateMessageSession:
             if(self.name == p.name):
                 PrivateMessageSession.remove(p)
+
+def num_download(buffer):
+    count = 0
+    for b in buffer.keys():
+        if buffer[b]!=None:
+            count = count+1
+    return count
 
 
 def receiveThread(p):
@@ -356,7 +419,7 @@ if __name__ == "__main__":
 
             if not selfInfo.empty():
                 msg = selfInfo.get()
-                port = int( msg[1])
+                port = int(msg[1])
                 p2pReceiveSocket = socket(AF_INET, SOCK_STREAM)
                 p2pReceiveSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
                 p2pReceiveSocket.bind(("localhost",port))
@@ -369,6 +432,7 @@ if __name__ == "__main__":
 
 
         except KeyboardInterrupt:
+            clientSocket.send("logout".encode())
             print("Client closing..")
             sys.exit(0)
 

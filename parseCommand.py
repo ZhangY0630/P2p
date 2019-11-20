@@ -75,11 +75,12 @@ def parse(message,p,notifier,starttime):
                 chunk = message[1]
                 size = message[3]
                 if(notifier.checkDuplicateRegister(filename,chunk,p.name)):
-                    return "User has already registered"
-                notifier.addFileList(filename,chunk,p.name,size)
-                if(flag == "NoReplay"):
+                    #return "User has already registered"
                     return ""
-                return "register OK"
+                notifier.addFileList(filename,chunk,p.name,size)
+                if(flag == "NoReply"):
+                    return ""
+                return ""
 
             if len(message)==6:
                 print("get 4")
@@ -99,39 +100,54 @@ def parse(message,p,notifier,starttime):
                         notifier.addFileList(filename, chunk_style + str(n), p.name, size)
                 if (flag == "NoReplay"):
                     return ""
-                return "register OK"
+                return ""
             return "Invalid formate. Please follow follow the style like:\nregister mf mf01 to mf09 9 1024 or register mf mf10 930."
         except IndexError:
             return "Invalid formate. Please follow follow the style like:\nregister mf mf01 to mf09 9 1024 or register mf mf10 930."
     if command == "searchFile":
         filename = message[1]
         notifier.search(filename, p.name)
-        msg = notifier.fileSearch(filename)
+        msg = notifier.fileSearch(filename,p.name)
         return msg
     if command == "searchChunks":
         filename = message[1]
         chunk = message[2]
-        return notifier.chunkSearch(filename,chunk)
+        owners = notifier.chunkSearch(filename,chunk)
+
+
+        return owners
     if command == "p2pDownload":
         filename = message[1]
         notifier.searchAvailable(filename,p.name)
         return ""
     if command == "SuccessRegister":
-        if(p.startDownload==False):
-            user = message[1]
-            filename = message[2]
+        name = message[2]
+        downloader = notifier.find(name)
+        if(downloader.startDownload==False):
+
+            filename = message[1]
             chunklist = notifier.file(filename)
-            for c in chunklist.keys():
-                choose = random.choice(chunklist[c])
-                msg = "private "+user+" download "+filename+" "+c
-                msg = "Forward "+ msg
-                socket = notifier.find(choose)
-                socket.sendMessage(msg)
-            p.startDownload = True
+            msg = " ".join(chunklist)
+            msg = "ChunkList "+filename+" "+msg
+            downloader.sendMessage(msg)
+            downloader.startDownload = True
         return ""
     if command == "finishDownload":
         p.startDownload = False
         return ""
+    if command == "Available":
+        time.sleep(2)
+        p.sendMessage(" ".join(message))
+        return ""
+    if command == "Continue":
+        filename = message[1]
+        chunklist = notifier.file(filename)
+        msg = " ".join(chunklist)
+        print(msg)
+        msg = "ChunkList " + filename + " " + msg
+
+        return msg
+
     msg = "Error. Invalid command"
     return msg
 

@@ -45,3 +45,9 @@ class p2pFile():
                 reply.append(n)
 
         return reply
+    def chunklist(self):
+        return list(self.chunk)
+    def removeUser(self,name):
+        for key in self.chunk.keys():
+            if name in self.chunk[key]:
+                self.chunk[key].remove(name)

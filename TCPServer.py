@@ -216,6 +216,7 @@ def recv_handler(connectionSocket, clientAddress,notifier):
             Auth = False
             if p.name in currentClients:
                 currentClients.remove(p.name)
+            notifier.removeRegister(p.name)
             connectionSocket, clientAddress = serverSocket.accept()
             p = Socketprocess(connectionSocket,clientAddress)
             continue
