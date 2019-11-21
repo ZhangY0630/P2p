@@ -33,7 +33,6 @@ def parse(message,p,notifier,starttime):
         p.addBlockUser(user)
         return user + ' is blocked'
     if command == "unblock":
-        print(p.block)
         usr = message[1]
         if(p.checkBlockUser(usr)):
             p.removeBlockUser(usr)
@@ -70,7 +69,6 @@ def parse(message,p,notifier,starttime):
         message = message[:-1]
         try:
             if len(message)==4:
-                print("get 4")
                 filename = message[0]
                 chunk = message[1]
                 size = message[3]
@@ -83,7 +81,6 @@ def parse(message,p,notifier,starttime):
                 return ""
 
             if len(message)==6:
-                print("get 4")
                 filename = message[0]
                 chunk_style = message[1][:-2]
                 chunk_start = int(message[1][-2:])
@@ -145,7 +142,6 @@ def parse(message,p,notifier,starttime):
         filename = message[1]
         chunklist = notifier.file(filename)
         msg = " ".join(chunklist)
-        print(msg)
         msg = "ChunkList " + filename + " " + msg
 
         return msg

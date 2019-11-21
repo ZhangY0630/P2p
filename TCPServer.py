@@ -57,7 +57,6 @@ class Socketprocess:
     def receiveMessage(self):
 
         ReceiveTimeout = threading.Event()
-        print(ReceiveTimeout.isSet())
         timeout_threading = threading.Thread(target= self.DetectReceiveTimeout,args=(ReceiveTimeout,))
         timeout_threading.start()
         message = self.connectionSocket.recvfrom(2048)
@@ -70,7 +69,8 @@ class Socketprocess:
         if (message == ""):
             raise KeyboardInterrupt
         message = message.split(" ")
-        print(message)
+        #for debug purpose uncomment following line
+        #print(message)
         return message
 
     def closeSocket(self):
