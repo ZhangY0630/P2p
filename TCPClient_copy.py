@@ -36,16 +36,17 @@ def fileBuffer(file,size,name):
     global download_buffer
 
     count = 1
-    with open(file,"r+") as f:
+    with open(file,"rb") as f:
         while 1:
             r = f.read(size)
-            if (r == ""):
+            if (r == b""):
                 return
             if(count<10):
                 final = name+"0"+str(count)
             else:
                 final = name + str(count)
             download_buffer[final] = r
+
             count = count+1
 
 def haveResource(filename,socket):
@@ -218,7 +219,7 @@ def checkFileTransfer(message,socket):
             print(str(num_chunks)+" chunks in this case can't hold it, make sure file smaller than 10kb ")
             return True
         try:
-            with open(filename,"r+"):
+            with open(filename,"rb"):
                 message = message+" Reply"
                 socket.send(message.encode())
                 return True
@@ -251,17 +252,21 @@ def send_handler(clientSocket,end,m):
         clientSocket.close()
         end.set()
 def writeFile(buffer,file):
-    with open("download_"+file,"a+") as f:
+    with open("download_"+file,"ab") as f:
+        print("start writing")
         for w in buffer.keys():
-            f.write(buffer[w])
+            print("writing")
+
+            f.write(buffer[w].encode("ISO-8859-1"))
+
 
 def p2pInitial(file,chunk_name):
     if (os.path.exists(file)):
         if not (download_buffer):
             size = os.stat(file).st_size
             piece = int(size / num_chunks)+1
-            if piece > 1024:
-                piece = 1024
+            if piece > 2048:
+                piece = 2048
             print(piece)
             fileBuffer(file, piece, chunk_name)
             return piece
@@ -303,27 +308,35 @@ class socketprocess:
                 file = receivedMessage[1]
                 chunk = receivedMessage[2]
                 msg = download_buffer[chunk]
-                msg = "file "+str(chunk)+" "+ msg + " "+file
+                msg = "file "+str(chunk)+" "+ msg.decode("ISO-8859-1") + " "+file
+                print(msg)
                 self.connectionSocket.send(msg.encode())
                 return
 
             if (receivedMessage[0] == "file"):
-                download_buffer[receivedMessage[1]] = receivedMessage[2]
-                print(receivedMessage[3])
-                msg = "register "+receivedMessage[3]+" "+receivedMessage[1]+" "+str(num_chunks)+" "+str(sys.getsizeof(receivedMessage[2]))+" "+"NoReply"
+                print(receivedMessage)
+                chunk_name = receivedMessage[1]
+                receivedMessage = receivedMessage[2:]
+                file_name = receivedMessage[-1]
+                receivedMessage = receivedMessage[:-1]
+                content = " ".join(receivedMessage)
+                download_buffer[chunk_name] = content
+                print("here's content"+content)
+                msg = "register "+file_name+" "+chunk_name+" "+str(num_chunks)+" "+str(sys.getsizeof(content))+" "+"NoReply"
                 clientSocket.send(msg.encode())
-                print("receive "+ receivedMessage[1])
-                msg = "send "+receivedMessage[1]
+                print("receive "+ chunk_name)
+
+                msg = "send "+chunk_name
                 self.connectionSocket.send(msg.encode())
                 print(str((num_download(download_buffer)/num_chunks) * 100) + ("% complete"))
                 time.sleep(1)
                 if(num_download(download_buffer)==num_chunks):
-                    writeFile(download_buffer,receivedMessage[3])
+                    writeFile(download_buffer,file_name )
                     download_buffer = {}
                     clientSocket.send("finishDownload".encode())
-                    print("download_"+receivedMessage[3]+" done")
+                    print("download_"+file_name+" done")
                     return
-                msg = "Continue "+ receivedMessage[3]
+                msg = "Continue "+ file_name
 
                 clientSocket.send(msg.encode())
                 return
@@ -432,7 +445,10 @@ if __name__ == "__main__":
 
 
         except (KeyboardInterrupt,OSError):
-            clientSocket.send("logout".encode())
+            try:
+                clientSocket.send("logout".encode())
+            except OSError:
+                pass
             print("Client closing..")
             sys.exit(0)
 
