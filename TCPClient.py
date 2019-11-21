@@ -29,9 +29,9 @@ def checkInvalidLogin(receivedMessage):
     if(receivedMessage.decode()=="Timeout"):
         print("\nTimeout")
         raise TimeoutError
-
     return False
 
+#read the local file
 def fileBuffer(file,size,name):
     global download_buffer
 
@@ -48,7 +48,7 @@ def fileBuffer(file,size,name):
             download_buffer[final] = r
 
             count = count+1
-
+#register file on server
 def haveResource(filename,socket):
     global download_buffer
     global num_chunks
@@ -74,10 +74,9 @@ def recv_handler(clientSocket,end,m,p2p,selfInfo):
     clientSocket.send(message.encode())
     try:
         while 1:
-
-
             time.sleep(0.1)
             receive = clientSocket.recvfrom(2048)
+            # if fail to login, keep looping for username and password
             if (checkInvalidLogin(receive[0])):
                 usr = input("UserName: \n")
                 loginName = usr
@@ -88,6 +87,7 @@ def recv_handler(clientSocket,end,m,p2p,selfInfo):
                 continue
 
             receivedMessage = receive[0]
+            #if that's p2p session request
             if (receivedMessage.decode().split()[0] == "private"):
                 content = receivedMessage.decode().split()
                 address = content[1]
@@ -96,13 +96,14 @@ def recv_handler(clientSocket,end,m,p2p,selfInfo):
                 print("Start private messaging with "+ name)
                 p2p.put((address,port,name))
                 continue
+            # if connected p2p client send its info back
             if( receivedMessage.decode().split()[0] == "personal" ):
                 content = receivedMessage.decode().split()
                 address = content[1]
                 port = content[2]
                 selfInfo.put((address, port))
                 continue
-
+            # request to check file in local directory
             if (receivedMessage.decode().split()[0] == "request"):
                 filename = receivedMessage.decode().split()[1]
                 user = receivedMessage.decode().split()[2]
@@ -114,7 +115,7 @@ def recv_handler(clientSocket,end,m,p2p,selfInfo):
                 filename = receivedMessage.decode().split()[1]
                 haveResource(filename,clientSocket)
                 continue
-
+            # server send back chunklist of that file and client random choose one to search user
             if (receivedMessage.decode().split()[0] == "ChunkList"):
                 filename = receivedMessage.decode().split()[1]
                 chunklist = receivedMessage.decode().split()[2:]
@@ -128,7 +129,8 @@ def recv_handler(clientSocket,end,m,p2p,selfInfo):
 
                 clientSocket.send(msg.encode())
                 continue
-
+            # server send back that owners of that chunk, client random pick one to start p2p session and
+            # request to download
             if (receivedMessage.decode().split()[0] == "Available"):
                 content = receivedMessage.decode().split()
                 ori = content
@@ -141,6 +143,7 @@ def recv_handler(clientSocket,end,m,p2p,selfInfo):
 
                 # #To do need to limit the num of loop
                 socket = checkPrivateMessageList(name)
+                #if have already start session skip
                 if not socket:
                     msg = "startprivate "+name
                     clientSocket.send(msg.encode())
@@ -161,14 +164,14 @@ def recv_handler(clientSocket,end,m,p2p,selfInfo):
         clientSocket.shutdown(1)
         clientSocket.close()
         end.set()
-
+# find not fill yet chunk
 def bufferlist(buffer):
     l = []
     for key in buffer.keys():
         if(buffer[key]==None):
             l.append(key)
     return l
-
+# check user has already start p2p session or not
 def checkPrivateMessageList(user):
     global PrivateMessageSession
     for p in PrivateMessageSession:
@@ -176,7 +179,7 @@ def checkPrivateMessageList(user):
             return p
     return None
 
-
+# check its command for p2p client or server
 def checkP2pMsg(msg):
     global loginNames
     global PrivateMessageSession
@@ -211,7 +214,7 @@ def checkP2pMsg(msg):
         return False
 
 
-
+# check for file download message
 def checkFileTransfer(message,socket):
     global num_chunks
     content = message.split(" ")
@@ -260,7 +263,7 @@ def writeFile(buffer,file):
         for w in buffer.keys():
             f.write(buffer[w].encode("ISO-8859-1"))
 
-
+#decide the buffer size
 def p2pInitial(file,chunk_name):
     if (os.path.exists(file)):
         if not (download_buffer):
@@ -315,7 +318,7 @@ class socketprocess:
                 msg = "file "+str(chunk)+" "+ msg.decode("ISO-8859-1") + " "+file
                 self.connectionSocket.send(msg.encode())
                 return
-
+            #receive downlaod from other clients and register back to server
             if (receivedMessage[0] == "file"):
                 print(receivedMessage)
                 chunk_name = receivedMessage[1]
@@ -327,11 +330,11 @@ class socketprocess:
                 msg = "register "+file_name+" "+chunk_name+" "+str(num_chunks)+" "+str(sys.getsizeof(content))+" "+"NoReply"
                 clientSocket.send(msg.encode())
                 print("receive "+ chunk_name)
-
                 msg = "send "+chunk_name
                 self.connectionSocket.send(msg.encode())
                 print(str((num_download(download_buffer)/num_chunks) * 100) + ("% complete"))
                 time.sleep(1)
+                # if all the chunks done , finish download and write to file
                 if(num_download(download_buffer)==num_chunks):
                     writeFile(download_buffer,file_name )
                     download_buffer = {}
@@ -360,7 +363,7 @@ class socketprocess:
         for p in PrivateMessageSession:
             if(self.name == p.name):
                 PrivateMessageSession.remove(p)
-
+#number of already donwload
 def num_download(buffer):
     count = 0
     for b in buffer.keys():
@@ -399,11 +402,11 @@ if __name__ == "__main__":
     message = threading.Event()
     p2p = Queue()
     selfInfo = Queue()
-
+    #receive thread
     recv_thread = threading.Thread(name="RecvHandler", target=recv_handler,args=(clientSocket,end,message,p2p,selfInfo))
     recv_thread.daemon = True
     recv_thread.start()
-
+    #send thread
     send_thread = threading.Thread(name="SendHandler", target=send_handler,args=(clientSocket,end,message))
     send_thread.daemon = True
     send_thread.start()

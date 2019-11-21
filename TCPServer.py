@@ -44,33 +44,28 @@ class Socketprocess:
         self.name= name;
 
     def DetectReceiveTimeout(self,e):
-
         start_time = time.time()
         while not e.isSet():
 
             if (time.time() - start_time > Timeout):
                 print("Timeout Detect!")
                 serverMessage = "Timeout"
-                self.sendMessage(serverMessage)
+                self.sendMessage(serverMessage) #as the time arrive, tell client time out
                 break
 
     def receiveMessage(self):
-
+        # everytime before receiving, start to count time
         ReceiveTimeout = threading.Event()
         timeout_threading = threading.Thread(target= self.DetectReceiveTimeout,args=(ReceiveTimeout,))
         timeout_threading.start()
         message = self.connectionSocket.recvfrom(2048)
-        ReceiveTimeout.set()
+        ReceiveTimeout.set() #close time count
 
 
-
-        print("message received...")
         message = message[0].decode()
         if (message == ""):
             raise KeyboardInterrupt
         message = message.split(" ")
-        #for debug purpose uncomment following line
-        #print(message)
         return message
 
     def closeSocket(self):
@@ -100,6 +95,7 @@ def userAuth(username, password):
             if data[0] == username and data[1] == password:
                 return True
     return False
+#if user name on the credential.txt
 def NameOnList(username):
     with open('./credentials.txt', "r+") as file:
         for data in file:
@@ -108,12 +104,10 @@ def NameOnList(username):
             if data[0] == username :
                 return True
     return False
-
+#thread function to record time
 def blockUsr():
-
     time.sleep(BlockTime)
-
-
+# if user fail to login, check what kind of condition is
 def UserLoginFailAttempt(username):
     global blacklist
     if username not in blacklist and NameOnList(username):
@@ -130,7 +124,7 @@ def UserLoginFailAttempt(username):
         th.start()
         currentBlockThread.append(th)
         return "Invalid PassWord, You account has been blocked"
-
+#Check still under blocking or not
 def CheckBlockingDuratoin(username):
     global currentBlockThread
 
@@ -152,11 +146,11 @@ def UserAlreadyLogin(username):
     if username in  currentClients:
         return True
     return False
-
+#form personal info and send back
 def addressString(addr,username):
     address = addr[0]
     port = addr[1]
-    string = "personal "+ str(address)+" "+ str(port)#+" "+ str(username)
+    string = "personal "+ str(address)+" "+ str(port)#
     return string
 
 def recv_handler(connectionSocket, clientAddress,notifier):
@@ -170,6 +164,7 @@ def recv_handler(connectionSocket, clientAddress,notifier):
         try:
             message = p.receiveMessage()
             with t_lock:
+                #check user have already authetication or not
                 if(not Auth):
                     username = message[0]
                     if(CheckBlockingDuratoin(username)):
@@ -178,13 +173,16 @@ def recv_handler(connectionSocket, clientAddress,notifier):
                         t_lock.notify()
                         continue
 
-
+                    #check password and username
                     if(userAuth(username,message[1])):
-
                         if(UserAlreadyLogin(username)):
                             print("user exist")
                             serverMessage = "User Already Login"
                         else:
+                            #if success login:
+                            #clear fail login times, add to online user list
+                            #set up socket class name
+                            #notify other user, it's login
                             p.sendMessage(addressString(clientAddress,username))
                             time.sleep(0.3)
                             startTimeRecord[username] = time.time()
@@ -251,8 +249,6 @@ def connection_setup(serverSocket,notifier):
     try:
 
         connectionSocket, clientAddress = serverSocket.accept()
-
-
         recv_thread = threading.Thread(name=clientAddress, target=recv_handler,
                                        args=(connectionSocket, clientAddress,notifier))
 

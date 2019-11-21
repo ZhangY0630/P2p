@@ -3,6 +3,7 @@ class notifier:
     def __init__(self):
         self.current_list = []
         self.all_list = []
+        # add all possible user to list
         with open('./credentials.txt', "r+") as file:
             for data in file:
                 data = data.rstrip()
@@ -28,6 +29,7 @@ class notifier:
         new = p2pFile(name)
         new.addChunk(chunk,user,size)
         self.filelist.append(new)
+    # get chunks in that name
     def file(self,filename):
         for file in self.filelist:
             if(file.name == filename):

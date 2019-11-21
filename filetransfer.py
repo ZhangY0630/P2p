@@ -11,7 +11,6 @@ class p2pFile():
                 break
         self.size[piece] = size
 
-
         for c in self.chunk.keys():
             if c == piece:
                 if user not in self.chunk.keys():
