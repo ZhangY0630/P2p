@@ -209,7 +209,7 @@ def recv_handler(connectionSocket, clientAddress,notifier):
                 else:
                     p.sendMessage(serverMessage)
                     t_lock.notify()
-        except (KeyboardInterrupt, RuntimeError,ConnectionResetError) as e:
+        except (KeyboardInterrupt, RuntimeError,ConnectionResetError,IndexError) as e:
             print(e)
             notifier.logout(p)
             p.closeSocket()

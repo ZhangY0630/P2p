@@ -10,6 +10,9 @@ def parse(message,p,notifier,starttime):
         return msg
 
     if command == "message":
+        if p.name == message[1]:
+            msg = "Error. Invalid User"
+            return msg
         if not (notifier.checkuser(message[1])):
             msg = "Error. Invalid User"
             return msg
@@ -106,9 +109,13 @@ def parse(message,p,notifier,starttime):
     if command == "searchFile":
         filename = message[1]
         notifier.search(filename, p.name)
-        msg = notifier.fileSearch(filename,p.name)
+        try:
+            msg = notifier.fileSearch(filename,p.name)
+        except IndexError:
+            p.sendMessage("Chunk Don't register")
+            return ""
         return msg
-    if command == "searchChunks":
+    if command == "searchChunk":
         filename = message[1]
         chunk = message[2]
         owners = notifier.chunkSearch(filename,chunk)

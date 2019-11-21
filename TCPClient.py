@@ -6,7 +6,7 @@ import threading
 import time
 from socket import *
 from queue import Queue
-#
+
 PrivateMessageSession = []
 socketlist = []
 download_buffer = {}
@@ -14,7 +14,7 @@ loginName = None
 
 num_chunks = 10
 global clientSocket
-#PrivateSendSession = []
+
 
 def checkInvalidLogin(receivedMessage):
     if (receivedMessage.decode()=="Invalid PassWord, Please try again" or receivedMessage.decode()=="User Already Login"):
@@ -124,7 +124,7 @@ def recv_handler(clientSocket,end,m,p2p,selfInfo):
                         download_buffer[c] = None
                 l = bufferlist(download_buffer)
                 choose = random.choice(l)
-                msg = "searchChunks "+filename+" "+choose
+                msg = "searchChunk "+filename+" "+choose
 
                 clientSocket.send(msg.encode())
                 continue
@@ -197,8 +197,11 @@ def checkP2pMsg(msg):
             print("User haven't establish the connection or user offline")
         return True
     elif(content[0]=="stopprivate"):
+        if(len(content)==1):
+            print("Please Specify the user ")
         for p in PrivateMessageSession:
             if p.name == content[1]:
+                p.sendMessage("stop")
                 print("Closing p2p message with "+ str(content[1]))
                 p.closesocket()
                 return True
@@ -297,7 +300,10 @@ class socketprocess:
                 print("Establishing connection with a p2p client with " + receivedMessage[1])
                 self.name = receivedMessage[1]
                 return
-
+            if(receivedMessage[0] == "stop"):
+                self.connectionSocket.close()
+                print("closing p2p connection ")
+                return
             if (receivedMessage[0] == "download"):
                 global download_buffer
                 if (len(receivedMessage) != 3):
